@@ -1,0 +1,17 @@
+{
+  "name": "spendir",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "moment": "^2.19.1",
+    "mongoose": "^4.12.4",
+    "telegraf": "^3.14.0"
+  },
+  "devDependencies": {},
+  "description": ""
+}
