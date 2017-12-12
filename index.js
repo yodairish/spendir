@@ -39,8 +39,18 @@ function getOutputConcurrency(value) {
   return CONCURRENCY_TRANSLATE[concurrency] || concurrency;
 }
 
+function printTotal(total) {
+  return Object.keys(total)
+    .map((concurrency) => {
+      const value = (total[concurrency] % 1 ? total[concurrency].toFixed(1) : total[concurrency]);
+      return `${value} ${concurrency}`;
+    })
+    .join(', ');
+}
+
 function showSpends(ctx, items) {
-  let total = {};
+  const total = {};
+  const tags = {};
   let currentDay;
   let output = items.reduce((result, item) => {
     const created = moment(item.created_at).utcOffset(3);
@@ -54,15 +64,34 @@ function showSpends(ctx, items) {
     const concurrency = getOutputConcurrency(item.concurrency);
 
     total[concurrency] = (total[concurrency] || 0) + item.amount;
+
+    if (item.tags) {
+      item.tags.forEach((tag) => {
+        if (!tags[tag]) {
+          tags[tag] = {};
+        }
+
+        tags[tag][concurrency] = (tags[tag][concurrency] || 0) + item.amount;
+      });
+    }
+
     result += `${created.format('HH:mm')} - ${item.amount} ${concurrency} - ${item.author}${(item.msg ? ` - ${item.msg}` : '')}\n`;
 
     return result;
   }, '');
 
   if (output) {
-    output += Object.keys(total).reduce((str, concurrency) => {
-      return str + `\n${total[concurrency]} ${concurrency}`;
-    }, '\nВсего:');
+    output += '\nВсего:';
+
+    const tagsOutput = Object.keys(tags).map((tag) => {
+      return `${tag} - ` + printTotal(tags[tag]);
+    }).join('\n');
+
+    if (tagsOutput) {
+      output += `\n${tagsOutput}`;
+    }
+
+    output += '\n= ' + printTotal(total);
   } else {
     output = 'Нет записей';
   }
