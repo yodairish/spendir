@@ -1,5 +1,6 @@
 const moment = require('moment');
 const Telegraf = require('telegraf');
+const Telegram = require('telegraf/telegram')
 const TOKEN = require('./configs/token');
 
 moment.locale('ru');
@@ -30,8 +31,10 @@ const mongoSpendSchema = new MongoSchema({
 const mongoSpend = mongoose.model('Spend', mongoSpendSchema);
 
 const app = new Telegraf(TOKEN);
+const telegram = new Telegram(TOKEN);
 
 const moneyPattern = /^([0-9\. ]+)(.*)?/;
+const endOfDay = moment().endOf('day');
 
 function getOutputConcurrency(value) {
   let concurrency = value || CONCURRENCY_DEFAULT;
@@ -48,7 +51,7 @@ function printTotal(total) {
     .join(', ');
 }
 
-function showSpends(ctx, items) {
+function getSpends(items) {
   const total = {};
   const tags = {};
   let currentDay;
@@ -96,7 +99,7 @@ function showSpends(ctx, items) {
     output = 'Нет записей';
   }
 
-  ctx.reply(output);
+  return output;
 }
 
 function allocateEntities(text, entities, textOffset) {
@@ -204,12 +207,32 @@ function removeRecord(ctx, record) {
     });;
 }
 
+function dailySpends() {
+  mongoSpend.find().distinct('cell')
+    .then((cells) => {
+      cells.forEach((cell) => {
+        mongoSpend.find({
+            cell: cell,
+            created_at: { $gte: moment().startOf('day').toDate() }
+          })
+          .then((items) => getSpends(items))
+          .then((output) => telegram.sendMessage(cell, output))
+          .catch((e) => console.log(e));
+      });
+    });
+
+  // go to next day
+  endOfDay.add(1, 'day');
+  setTimeout(dailySpends, endOfDay.diff());
+}
+
 app.command(['day', 'day@SpendirBot'], (ctx) => {
   mongoSpend.find({
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('day').toDate() }
     })
-    .then((items) => showSpends(ctx, items))
+    .then((items) => getSpends(items))
+    .then((output) => ctx.reply(output))
     .catch((e) => console.log(e));
 });
 
@@ -218,7 +241,8 @@ app.command(['week', 'week@SpendirBot'], (ctx) => {
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('week').toDate() }
     })
-    .then((items) => showSpends(ctx, items))
+    .then((items) => getSpends(items))
+    .then((output) => ctx.reply(output))
     .catch((e) => console.log(e));
 });
 
@@ -227,7 +251,8 @@ app.command(['month', 'month@SpendirBot'], (ctx) => {
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('month').toDate() }
     })
-    .then((items) => showSpends(ctx, items))
+    .then((items) => getSpends(items))
+    .then((output) => ctx.reply(output))
     .catch((e) => console.log(e));
 });
 
@@ -271,5 +296,8 @@ app.on('message', (ctx) => {
 
   addRecord(ctx, message, result);
 });
+
+// show spend info daily
+setTimeout(dailySpends, endOfDay.diff());
 
 app.startPolling();
