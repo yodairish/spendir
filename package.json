@@ -10,7 +10,7 @@
   "dependencies": {
     "moment": "^2.19.1",
     "mongoose": "^4.12.4",
-    "telegraf": "^3.14.0"
+    "telegraf": "^3.17.2"
   },
   "devDependencies": {},
   "description": ""
