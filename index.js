@@ -34,7 +34,7 @@ const app = new Telegraf(TOKEN);
 const telegram = new Telegram(TOKEN);
 
 const moneyPattern = /^([0-9\. ]+)(.*)?/;
-const endOfDay = moment().endOf('day');
+const endOfDay = moment().utcOffset(3).endOf('day');
 
 function getOutputConcurrency(value) {
   let concurrency = value || CONCURRENCY_DEFAULT;
