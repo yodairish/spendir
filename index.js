@@ -207,19 +207,31 @@ function removeRecord(ctx, record) {
     });;
 }
 
-function dailySpends() {
+function sendCellSpends(period) {
   mongoSpend.find().distinct('cell')
     .then((cells) => {
       cells.forEach((cell) => {
         mongoSpend.find({
             cell: cell,
-            created_at: { $gte: moment().startOf('day').toDate() }
+            created_at: { $gte: moment().startOf(period).toDate() }
           })
           .then((items) => getSpends(items))
-          .then((output) => telegram.sendMessage(cell, output))
+          .then((output) => (output && telegram.sendMessage(cell, output)))
           .catch((e) => console.log(e));
       });
     });
+}
+
+function dailySpends() {
+  sendCellSpends('day');
+
+  if (endOfDay.isSame(endOfDay.clone().endOf('week'))) {
+    sendCellSpends('week');
+  }
+
+  if (endOfDay.isSame(endOfDay.clone().endOf('month'))) {
+    sendCellSpends('month');
+  }
 
   // go to next day
   endOfDay.add(1, 'day');
