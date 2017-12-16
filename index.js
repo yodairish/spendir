@@ -49,7 +49,7 @@ function getSpends(items) {
 
     total[concurrency] = (total[concurrency] || 0) + item.amount;
 
-    if (item.tags) {
+    if (item.tags && item.tags.length) {
       item.tags.forEach((tag) => {
         if (!tags[tag]) {
           tags[tag] = {};
@@ -57,6 +57,12 @@ function getSpends(items) {
 
         tags[tag][concurrency] = (tags[tag][concurrency] || 0) + item.amount;
       });
+    } else {
+      if (!tags['no-tag']) {
+        tags['no-tag'] = {};
+      }
+
+      tags['no-tag'][concurrency] = (tags['no-tag'][concurrency] || 0) + item.amount;
     }
 
     result += `${created.format('HH:mm')} - ${item.amount} ${concurrency} - ${item.author}${(item.msg ? ` - ${item.msg}` : '')}\n`;
