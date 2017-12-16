@@ -196,7 +196,7 @@ function sendCellSpends(period) {
             cell: cell,
             created_at: { $gte: moment().startOf(period).toDate() }
           })
-          .then((items) => getSpends(items))
+          .then((items) => (items && items.length && getSpends(items)))
           .then((output) => (output && telegram.sendMessage(cell, output)))
           .catch((e) => console.log(e));
       });
