@@ -6,29 +6,10 @@ const TOKEN = require('./configs/token');
 moment.locale('ru');
 
 const db = require('./mongo');
-const mongoose = require('mongoose');
-const MongoSchema = mongoose.Schema;
 
 const CONCURRENCY_LIST = ['руб', 'rub', 'euro', 'usd', 'pounds', 'aud'];
 const CONCURRENCY_TRANSLATE = { 'rub': 'руб' };
 const CONCURRENCY_DEFAULT = 'rub';
-
-const mongoSpendSchema = new MongoSchema({
-  cell: Number,
-  author: String,
-  amount: Number,
-  concurrency: String,
-  msg: String,
-  messageId: Number,
-  tags: [String],
-}, {
-  timestamps: {
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
-  },
-});
-
-const mongoSpend = mongoose.model('Spend', mongoSpendSchema);
 
 const app = new Telegraf(TOKEN);
 const telegram = new Telegram(TOKEN);
@@ -169,7 +150,7 @@ function addRecord(ctx, message, result) {
     messageId: message.message_id,
   };
 
-  return new mongoSpend(data)
+  return new db.spend(data)
     .save()
     .then(() => {
       const concurrency = getOutputConcurrency(result.concurrency);
@@ -208,10 +189,10 @@ function removeRecord(ctx, record) {
 }
 
 function sendCellSpends(period) {
-  mongoSpend.find().distinct('cell')
+  db.spend.find().distinct('cell')
     .then((cells) => {
       cells.forEach((cell) => {
-        mongoSpend.find({
+        db.spend.find({
             cell: cell,
             created_at: { $gte: moment().startOf(period).toDate() }
           })
@@ -239,7 +220,7 @@ function dailySpends() {
 }
 
 app.command(['day', 'day@SpendirBot'], (ctx) => {
-  mongoSpend.find({
+  db.spend.find({
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('day').toDate() }
     })
@@ -249,7 +230,7 @@ app.command(['day', 'day@SpendirBot'], (ctx) => {
 });
 
 app.command(['week', 'week@SpendirBot'], (ctx) => {
-  mongoSpend.find({
+  db.spend.find({
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('week').toDate() }
     })
@@ -259,7 +240,7 @@ app.command(['week', 'week@SpendirBot'], (ctx) => {
 });
 
 app.command(['month', 'month@SpendirBot'], (ctx) => {
-  mongoSpend.find({
+  db.spend.find({
       cell: ctx.message.chat.id,
       created_at: { $gte: moment().startOf('month').toDate() }
     })
@@ -275,7 +256,7 @@ app.on('edited_message', (ctx) => {
 
   const result = parseMessage(message.text, message.entities);
 
-  mongoSpend
+  db.spend
     .findOne({
       cell: message.chat.id,
       messageId: message.message_id,
