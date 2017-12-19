@@ -17,6 +17,9 @@ const telegram = new Telegram(TOKEN);
 const moneyPattern = /^([0-9\. ]+)(.*)?/;
 const endOfDay = moment().utcOffset(3).endOf('day');
 
+const EMPTY_MESSAGE = 'Нет записей';
+const NO_TAG = 'other';
+
 function getOutputConcurrency(value) {
   let concurrency = value || CONCURRENCY_DEFAULT;
 
@@ -32,61 +35,100 @@ function printTotal(total) {
     .join(', ');
 }
 
-function getSpends(items) {
-  const total = {};
-  const tags = {};
-  let currentDay;
-  let output = items.reduce((result, item) => {
-    const created = moment(item.created_at).utcOffset(3);
-    const day = created.format('DD.MM');
+function getSpends(cell, period) {
+  return getRecords(cell, period)
+    .then((items) => {
+      const spends = { total: {}, days: {}, tags: {}, empty: false };
 
-    if (currentDay !== day) {
-      result += `\n${day}\n`;
-      currentDay = day;
-    }
+      if (!items || !items.length) {
+        spends.empty = true;
 
-    const concurrency = getOutputConcurrency(item.concurrency);
-
-    total[concurrency] = (total[concurrency] || 0) + item.amount;
-
-    if (item.tags && item.tags.length) {
-      item.tags.forEach((tag) => {
-        if (!tags[tag]) {
-          tags[tag] = {};
-        }
-
-        tags[tag][concurrency] = (tags[tag][concurrency] || 0) + item.amount;
-      });
-    } else {
-      if (!tags['no-tag']) {
-        tags['no-tag'] = {};
+        return spends;
       }
 
-      tags['no-tag'][concurrency] = (tags['no-tag'][concurrency] || 0) + item.amount;
-    }
+      let currentDay;
 
-    result += `${created.format('HH:mm')} - ${item.amount} ${concurrency} - ${item.author}${(item.msg ? ` - ${item.msg}` : '')}\n`;
+      return items.reduce((result, item) => {
+        const created = moment(item.created_at).utcOffset(3);
+        const day = created.format('DD.MM');
 
-    return result;
-  }, '');
+        if (currentDay !== day) {
+          currentDay = day;
+        }
 
-  if (output) {
-    output += '\nВсего:';
+        const concurrency = getOutputConcurrency(item.concurrency);
 
-    const tagsOutput = Object.keys(tags).map((tag) => {
-      return `${tag} - ` + printTotal(tags[tag]);
-    }).join('\n');
+        result.total[concurrency] = (result.total[concurrency] || 0) + item.amount;
 
-    if (tagsOutput) {
-      output += `\n${tagsOutput}`;
-    }
+        if (!item.tags || !item.tags.length) {
+          item.tags = [NO_TAG];
+        }
 
-    output += '\n= ' + printTotal(total);
-  } else {
-    output = 'Нет записей';
+        item.tags.forEach((tag) => {
+          if (!result.tags[tag]) {
+            result.tags[tag] = {};
+          }
+
+          result.tags[tag][concurrency] = (result.tags[tag][concurrency] || 0) + item.amount;
+        });
+
+        if (!result.days[currentDay]) {
+          result.days[currentDay] = [];
+        }
+
+        result.days[currentDay].push(`${created.format('HH:mm')} - ${item.amount} ${concurrency} - ${item.author}${(item.msg ? ` - ${item.msg}` : '')}`);
+
+        return result;
+      }, spends);
+    });
+}
+
+function getRecords(cell, period) {
+  if (!cell || !period) {
+    return Promise.resolve([]);
   }
 
+  return db.spend.find({
+    cell: cell,
+    created_at: { $gte: moment().startOf(period).toDate() }
+  });
+}
+
+function printSpends(spends) {
+  if (spends.empty) {
+    return EMPTY_MESSAGE;
+  }
+
+  let output = '';
+
+  output += Object.keys(spends.days).reduce((out, day) => {
+    return out + `\n${day}\n` + spends.days[day].join('\n') + '\n';
+  }, '');
+
+  output += '\nВсего:';
+
+  if (Object.keys(spends.tags).length > 1 || !spends.tags[NO_TAG]) {
+    output += '\n' + getSortedTagsByAmount(spends.tags).map((tag) => {
+      return `${tag} - ` + printTotal(spends.tags[tag]);
+    }).join('\n');
+  }
+
+  output += '\n= ' + printTotal(spends.total);
+
   return output;
+}
+
+function getSortedTagsByAmount(tags) {
+  return Object.keys(tags).sort((tag1, tag2) => {
+    return getTagSum(tags[tag1]) < getTagSum(tags[tag2]) ? 1 : -1;
+  });
+}
+
+function getTagSum(tag) {
+  // Need to put in same concurrency, right now it's stupid
+  return Object.keys(tag).reduce((sum, concurrency) => {
+    return sum + tag[concurrency];
+  }, 0);
 }
 
 function allocateEntities(text, entities, textOffset) {
@@ -158,9 +200,17 @@ function addRecord(ctx, message, result) {
 
   return new db.spend(data)
     .save()
-    .then(() => {
+    .then(() => getSpends(ctx.message.chat.id, 'day'))
+    .then((spends) => {
+      if (!spends.empty) {
+        return printTotal(spends.total);
+      }
+    })
+    .then((total) => {
+      total = total ? ` (${total})` : '';
+
       const concurrency = getOutputConcurrency(result.concurrency);
-      ctx.reply(`Принятно: ${result.amount} ${concurrency}`);
+      ctx.reply(`Принятно: ${result.amount} ${concurrency}${total}`);
     })
     .catch((e) => {
       console.log(e);
@@ -198,12 +248,12 @@ function sendCellSpends(period) {
   db.spend.find().distinct('cell')
     .then((cells) => {
       cells.forEach((cell) => {
-        db.spend.find({
-            cell: cell,
-            created_at: { $gte: moment().startOf(period).toDate() }
+        getSpends(cell, period)
+          .then((spends) => {
+            if (!spends.empty) {
+              telegram.sendMessage(cell, printSpends(spends));
+            };
           })
-          .then((items) => (items && items.length && getSpends(items)))
-          .then((output) => (output && telegram.sendMessage(cell, output)))
           .catch((e) => console.log(e));
       });
     });
@@ -226,32 +276,20 @@ function dailySpends() {
 }
 
 app.command(['day', 'day@SpendirBot'], (ctx) => {
-  db.spend.find({
-      cell: ctx.message.chat.id,
-      created_at: { $gte: moment().startOf('day').toDate() }
-    })
-    .then((items) => getSpends(items))
-    .then((output) => ctx.reply(output))
+  getSpends(ctx.message.chat.id, 'day')
+    .then((spends) => ctx.reply(printSpends(spends)))
     .catch((e) => console.log(e));
 });
 
 app.command(['week', 'week@SpendirBot'], (ctx) => {
-  db.spend.find({
-      cell: ctx.message.chat.id,
-      created_at: { $gte: moment().startOf('week').toDate() }
-    })
-    .then((items) => getSpends(items))
-    .then((output) => ctx.reply(output))
+  getSpends(ctx.message.chat.id, 'week')
+    .then((spends) => ctx.reply(printSpends(spends)))
     .catch((e) => console.log(e));
 });
 
 app.command(['month', 'month@SpendirBot'], (ctx) => {
-  db.spend.find({
-      cell: ctx.message.chat.id,
-      created_at: { $gte: moment().startOf('month').toDate() }
-    })
-    .then((items) => getSpends(items))
-    .then((output) => ctx.reply(output))
+  getSpends(ctx.message.chat.id, 'month')
+    .then((spends) => ctx.reply(printSpends(spends)))
     .catch((e) => console.log(e));
 });
 
