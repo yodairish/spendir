@@ -20,6 +20,9 @@ const endOfDay = moment().utcOffset(3).endOf('day');
 const EMPTY_MESSAGE = 'Нет записей';
 const NO_TAG = 'other';
 
+// Real limit 4096, but save some for extra
+const MESSAGE_LIMIT = 3500;
+
 function getOutputConcurrency(value) {
   let concurrency = value || CONCURRENCY_DEFAULT;
 
@@ -94,9 +97,10 @@ function getRecords(cell, period) {
   });
 }
 
-function printSpends(spends) {
+function printSpends(cell, spends) {
   if (spends.empty) {
-    return EMPTY_MESSAGE;
+    telegram.sendMessage(cell, EMPTY_MESSAGE);
+    return;
   }
 
   let output = '';
@@ -115,7 +119,32 @@ function printSpends(spends) {
 
   output += '\n= ' + printTotal(spends.total);
 
-  return output;
+  return splitOutput(output).reduce((prev, part, index) => {
+    return prev.then(() => telegram.sendMessage(cell, part));
+  }, Promise.resolve());
+}
+
+/**
+ * Maximum allowed message size is 4096 bytes
+ * So to send report even if it's really big(for example for month)
+ * We need to split it on chunks
+ * Just split by length not good enouth cause it may break one record
+ * So slipt output by lines
+ */
+function splitOutput(output) {
+  const parts = [''];
+
+  output.split('\n').forEach((line) => {
+    line += '\n';
+
+    if ((parts[parts.length - 1] + line).length > MESSAGE_LIMIT) {
+      parts.push('');
+    }
+
+    parts[parts.length - 1] += line;
+  });
+
+  return parts;
 }
 
 function getSortedTagsByAmount(tags) {
@@ -251,7 +280,7 @@ function sendCellSpends(period) {
         getSpends(cell, period)
           .then((spends) => {
             if (!spends.empty) {
-              telegram.sendMessage(cell, printSpends(spends));
+              return printSpends(cell, spends);
             };
           })
           .catch((e) => console.log(e));
@@ -277,19 +306,19 @@ function dailySpends() {
 
 app.command(['day', 'day@SpendirBot'], (ctx) => {
   getSpends(ctx.message.chat.id, 'day')
-    .then((spends) => ctx.reply(printSpends(spends)))
+    .then((spends) => printSpends(ctx.message.chat.id, spends))
     .catch((e) => console.log(e));
 });
 
 app.command(['week', 'week@SpendirBot'], (ctx) => {
   getSpends(ctx.message.chat.id, 'week')
-    .then((spends) => ctx.reply(printSpends(spends)))
+    .then((spends) => printSpends(ctx.message.chat.id, spends))
     .catch((e) => console.log(e));
 });
 
 app.command(['month', 'month@SpendirBot'], (ctx) => {
   getSpends(ctx.message.chat.id, 'month')
-    .then((spends) => ctx.reply(printSpends(spends)))
+    .then((spends) => printSpends(ctx.message.chat.id, spends))
     .catch((e) => console.log(e));
 });
 
