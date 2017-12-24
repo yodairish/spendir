@@ -11,17 +11,22 @@ const CONCURRENCY_LIST = ['руб', 'rub', 'euro', 'usd', 'pounds', 'aud'];
 const CONCURRENCY_TRANSLATE = { 'rub': 'руб' };
 const CONCURRENCY_DEFAULT = 'rub';
 
-const app = new Telegraf(TOKEN);
-const telegram = new Telegram(TOKEN);
-
-const moneyPattern = /^([0-9\. ]+)(.*)?/;
-const endOfDay = moment().utcOffset(3).endOf('day');
-
 const EMPTY_MESSAGE = 'Нет записей';
 const NO_TAG = 'other';
 
 // Real limit 4096, but save some for extra
 const MESSAGE_LIMIT = 3500;
+const DEFAULT_TIME_ZONE = 3;
+
+const app = new Telegraf(TOKEN);
+const telegram = new Telegram(TOKEN);
+
+const moneyPattern = /^([0-9\. ]+)(.*)?/;
+const endOfDay = time().endOf('day');
+
+function time(date) {
+  return moment(date).utcOffset(DEFAULT_TIME_ZONE);
+}
 
 function getOutputConcurrency(value) {
   let concurrency = value || CONCURRENCY_DEFAULT;
@@ -52,7 +57,7 @@ function getSpends(cell, period) {
       let currentDay;
 
       return items.reduce((result, item) => {
-        const created = moment(item.created_at).utcOffset(3);
+        const created = time(item.created_at);
         const day = created.format('DD.MM');
 
         if (currentDay !== day) {
@@ -93,7 +98,7 @@ function getRecords(cell, period) {
 
   return db.spend.find({
     cell: cell,
-    created_at: { $gte: moment().startOf(period).toDate() }
+    created_at: { $gte: time().startOf(period).toDate() }
   });
 }
 
