@@ -17,6 +17,7 @@ const mongoSpendSchema = new MongoSchema({
   cell: Number,
   author: String,
   amount: Number,
+  amountBase: Number,
   currency: String,
   msg: String,
   messageId: Number,

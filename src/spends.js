@@ -100,6 +100,7 @@ function add(ctx, message, result) {
     cell: message.chat.id,
     author: message.from.first_name,
     amount: result.amount,
+    amountBase: currencies.getValueInDefault(result.currency, result.amount),
     msg: result.msg,
     currency: result.currency,
     tags: result.tags,
@@ -128,6 +129,7 @@ function add(ctx, message, result) {
 function update(ctx, record, result) {
   const updateData = {
     amount: result.amount,
+    amountBase: currencies.getValueInDefault(result.currency, result.amount),
     currency: result.currency,
     msg: result.msg,
     tags: result.tags,

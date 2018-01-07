@@ -39,7 +39,12 @@ function getValueInDefault(name, value) {
     return value;
   }
 
-  return value * CURRENCIES[name];
+  value = value * CURRENCIES[name];
+
+  // Round to 2 numbers
+  value = +(value.toFixed(2));
+
+  return value;
 }
 
 function getForOutput(value) {
@@ -66,39 +71,44 @@ function printCurrentCurrencies(cell) {
  * Get last available currencies from cbr
  */
 function updateCurrencies() {
-  http.get(CB_CURRENCIES_JSON_URL, (res) => {
-    const { statusCode } = res;
-    let error;
+  return new Promise((resolve, reject) => {
+    http.get(CB_CURRENCIES_JSON_URL, (res) => {
+      const { statusCode } = res;
+      let error;
 
-    if (statusCode !== 200) {
-      error = new Error('Request Failed.\n' +
-                        `Status Code: ${statusCode}`);
-    }
-
-    if (error) {
-      console.error(error.message);
-      res.resume();
-      return;
-    }
-
-    let rawData = '';
-
-    res.setEncoding('utf8');
-    res.on('data', (chunk) => { rawData += chunk; });
-    res.on('end', () => {
-      try {
-        const currencies = JSON.parse(rawData);
-
-        Object.keys(currencies.Valute).forEach((name) => {
-          const currency = currencies.Valute[name];
-
-          CURRENCIES[name] = currency.Value / currency.Nominal;
-        });
-
-        console.log('updated currencies:\n', CURRENCIES);
-      } catch (e) {
-        console.error(e.message);
+      if (statusCode !== 200) {
+        error = new Error('Request Failed.\n' +
+                          `Status Code: ${statusCode}`);
       }
+
+      if (error) {
+        console.error(error.message);
+        res.resume();
+        reject(error);
+        return;
+      }
+
+      let rawData = '';
+
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { rawData += chunk; });
+      res.on('end', () => {
+        try {
+          const currencies = JSON.parse(rawData);
+
+          Object.keys(currencies.Valute).forEach((name) => {
+            const currency = currencies.Valute[name];
+
+            CURRENCIES[name] = currency.Value / currency.Nominal;
+          });
+
+          console.log('updated currencies:\n', CURRENCIES);
+          resolve(CURRENCIES);
+        } catch (e) {
+          console.error(e.message);
+          reject(error);
+        }
+      });
     });
   });
 }
@@ -127,4 +137,5 @@ module.exports.getName = getName;
 module.exports.getValueInDefault = getValueInDefault;
 module.exports.getForOutput = getForOutput;
 module.exports.printCurrentCurrencies = printCurrentCurrencies;
+module.exports.updateCurrencies = updateCurrencies;
 module.exports.runDailyCurrencies = runDailyCurrencies;
