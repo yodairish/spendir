@@ -1,8 +1,9 @@
 const moment = require('moment');
+const currencies = require('./currencies');
+const Telegram = require('telegraf/telegram');
+const TOKEN = require('../configs/token');
 
-const CONCURRENCY_LIST = ['руб', 'rub', 'euro', 'usd', 'pounds', 'aud'];
-const CONCURRENCY_TRANSLATE = { 'rub': 'руб' };
-const CONCURRENCY_DEFAULT = 'rub';
+const telegram = new Telegram(TOKEN);
 
 const DEFAULT_TIME_ZONE = 3;
 const MONEY_PATTERN = /^([0-9\. ]+)(.*)?/;
@@ -13,25 +14,37 @@ function time(date) {
   return moment(date).utcOffset(DEFAULT_TIME_ZONE);
 }
 
-function getOutputConcurrency(value) {
-  let concurrency = value || CONCURRENCY_DEFAULT;
-
-  return CONCURRENCY_TRANSLATE[concurrency] || concurrency;
-}
-
 function getSortedTagsByAmount(tags) {
   return Object.keys(tags).sort((tag1, tag2) => {
     return getTagSum(tags[tag1]) < getTagSum(tags[tag2]) ? 1 : -1;
   });
 }
 
-function getOutputTotal(total) {
-  return Object.keys(total)
-    .map((concurrency) => {
-      const value = (total[concurrency] % 1 ? total[concurrency].toFixed(1) : total[concurrency]);
-      return `${value} ${concurrency}`;
+function getOutputValue(value) {
+  let total = 0;
+  let hasNotDedault = false;
+
+  let output = Object.keys(value)
+    .map((currency) => {
+      const currencyValue = value[currency];
+
+      total += currencies.getValueInDefault(currency, currencyValue);
+
+      hasNotDedault = hasNotDedault || !currencies.isDefault(currency);
+
+      return `${ toFixed(currencyValue) } ${ currencies.getForOutput(currency) }`;
     })
     .join(', ');
+
+  if (hasNotDedault) {
+    output += ` (${ toFixed(total) } ${ currencies.getForOutput() })`;
+  }
+
+  return output;
+}
+
+function toFixed(value) {
+  return (value % 1 ? value.toFixed(1) : value);
 }
 
 /**
@@ -58,9 +71,8 @@ function splitOutput(output) {
 }
 
 function getTagSum(tag) {
-  // Need to put in same concurrency, right now it's stupid
-  return Object.keys(tag).reduce((sum, concurrency) => {
-    return sum + tag[concurrency];
+  return Object.keys(tag).reduce((sum, currency) => {
+    return sum + currencies.getValueInDefault(currency, tag[currency]);
   }, 0);
 }
 
@@ -95,18 +107,14 @@ function parseMessage(message, entities) {
   const amount = +matches[1].trim().replace(/ /g, '');
   let msg = (matches[2] || '').trim();
 
-  // Get concurrency
+  // Get currency
   const firstWord = (msg.match(/^[a-z]+/) || [])[0];
 
-  let concurrency = CONCURRENCY_LIST.find((name) => name.indexOf(firstWord) === 0);
+  let currency = currencies.normalize(firstWord);
 
-  if (concurrency) {
+  if (currency) {
     msg = msg.substr(firstWord.length);
-  } else {
-    concurrency = CONCURRENCY_DEFAULT;
   }
-
-  concurrency = Object.keys(CONCURRENCY_TRANSLATE).find((name) => CONCURRENCY_TRANSLATE[name] === concurrency) || concurrency;
 
   // Get tags
   const result = allocateEntities(msg, entities, -message.indexOf(msg));
@@ -114,15 +122,22 @@ function parseMessage(message, entities) {
   return {
     amount: amount,
     msg: result.text.trim(),
-    concurrency: concurrency,
+    currency: currencies.getName(currency),
     tags: result.tags,
     commands: result.commands,
   };
 }
 
+function printToCell(cell, output) {
+  return splitOutput(output).reduce((prev, part) => {
+    return prev.then(() => telegram.sendMessage(cell, part));
+  }, Promise.resolve());
+}
+
 module.exports.time = time;
-module.exports.getOutputConcurrency = getOutputConcurrency;
 module.exports.getSortedTagsByAmount = getSortedTagsByAmount;
-module.exports.getOutputTotal = getOutputTotal;
+module.exports.getOutputValue = getOutputValue;
 module.exports.splitOutput = splitOutput;
 module.exports.parseMessage = parseMessage;
+module.exports.printToCell = printToCell;
+module.exports.toFixed = toFixed;

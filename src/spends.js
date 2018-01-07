@@ -1,9 +1,6 @@
-const Telegram = require('telegraf/telegram');
-const TOKEN = require('../configs/token');
 const db = require('./db');
+const currencies = require('./currencies');
 const utils = require('./utils');
-
-const telegram = new Telegram(TOKEN);
 
 const EMPTY_MESSAGE = 'Нет записей';
 const NO_TAG = 'other';
@@ -37,9 +34,9 @@ function getData(cell, period) {
           currentDay = day;
         }
 
-        const concurrency = utils.getOutputConcurrency(item.concurrency);
+        const currency = currencies.getName(item.currency);
 
-        result.total[concurrency] = (result.total[concurrency] || 0) + item.amount;
+        result.total[currency] = (result.total[currency] || 0) + item.amount;
 
         if (!item.tags || !item.tags.length) {
           item.tags = [NO_TAG];
@@ -50,14 +47,24 @@ function getData(cell, period) {
             result.tags[tag] = {};
           }
 
-          result.tags[tag][concurrency] = (result.tags[tag][concurrency] || 0) + item.amount;
+          result.tags[tag][currency] = (result.tags[tag][currency] || 0) + item.amount;
         });
 
         if (!result.days[currentDay]) {
           result.days[currentDay] = [];
         }
 
-        result.days[currentDay].push(`${created.format('HH:mm')} - ${item.amount} ${concurrency} - ${item.author}${(item.msg ? ` - ${item.msg}` : '')}`);
+        const amount = {};
+        amount[currency] = item.amount;
+
+        const record = [
+          created.format('HH:mm'),      // time
+          utils.getOutputValue(amount), // amount
+          item.author,                  // author
+          item.msg,                     // message
+        ].filter(Boolean).join(' - ');
+
+        result.days[currentDay].push(record);
 
         return result;
       }, data);
@@ -66,8 +73,7 @@ function getData(cell, period) {
 
 function print(cell, data) {
   if (data.empty) {
-    telegram.sendMessage(cell, EMPTY_MESSAGE);
-    return;
+    return utils.printToCell(cell, EMPTY_MESSAGE);
   }
 
   let output = '';
@@ -80,15 +86,13 @@ function print(cell, data) {
 
   if (Object.keys(data.tags).length > 1 || !data.tags[NO_TAG]) {
     output += '\n' + utils.getSortedTagsByAmount(data.tags).map((tag) => {
-      return `${tag} - ` + utils.getOutputTotal(data.tags[tag]);
+      return `${tag} - ` + utils.getOutputValue(data.tags[tag]);
     }).join('\n');
   }
 
-  output += '\n= ' + utils.getOutputTotal(data.total);
+  output += '\n= ' + utils.getOutputValue(data.total);
 
-  return utils.splitOutput(output).reduce((prev, part, index) => {
-    return prev.then(() => telegram.sendMessage(cell, part));
-  }, Promise.resolve());
+  return utils.printToCell(cell, output);
 }
 
 function add(ctx, message, result) {
@@ -97,7 +101,7 @@ function add(ctx, message, result) {
     author: message.from.first_name,
     amount: result.amount,
     msg: result.msg,
-    concurrency: result.concurrency,
+    currency: result.currency,
     tags: result.tags,
     messageId: message.message_id,
   };
@@ -107,14 +111,14 @@ function add(ctx, message, result) {
     .then(() => getData(ctx.message.chat.id, 'day'))
     .then((data) => {
       if (!data.empty) {
-        return utils.getOutputTotal(data.total);
+        return utils.getOutputValue(data.total);
       }
     })
     .then((total) => {
       total = total ? ` (${total})` : '';
 
-      const concurrency = utils.getOutputConcurrency(result.concurrency);
-      ctx.reply(`Принятно: ${result.amount} ${concurrency}${total}`);
+      const currency = currencies.getForOutput(result.currency);
+      ctx.reply(`Принятно: ${result.amount} ${currency}${total}`);
     })
     .catch((e) => {
       console.log(e);
@@ -124,7 +128,7 @@ function add(ctx, message, result) {
 function update(ctx, record, result) {
   const updateData = {
     amount: result.amount,
-    concurrency: result.concurrency,
+    currency: result.currency,
     msg: result.msg,
     tags: result.tags,
   };
