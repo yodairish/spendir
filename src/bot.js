@@ -1,6 +1,7 @@
 const Telegraf = require('telegraf');
 const db = require('./db');
 const spends = require('./spends');
+const currencies = require('./currencies');
 const utils = require('./utils');
 const TOKEN = require('../configs/token');
 
@@ -21,6 +22,11 @@ bot.command(['week', 'week@SpendirBot'], (ctx) => {
 bot.command(['month', 'month@SpendirBot'], (ctx) => {
   spends.getData(ctx.message.chat.id, 'month')
     .then((data) => spends.print(ctx.message.chat.id, data))
+    .catch((e) => console.log(e));
+});
+
+bot.command(['currency', 'currency@SpendirBot'], (ctx) => {
+  currencies.printCurrentCurrencies(ctx.message.chat.id)
     .catch((e) => console.log(e));
 });
 
