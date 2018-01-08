@@ -31,5 +31,17 @@ const mongoSpendSchema = new MongoSchema({
 
 const mongoSpend = mongoose.model('Spend', mongoSpendSchema);
 
+const mongoLinksSchema = new MongoSchema({
+  hash: String,
+  cell: Number,
+}, {
+  timestamps: {
+    createdAt: 'created_at',
+  },
+});
+
+const mongoLinks = mongoose.model('Links', mongoLinksSchema);
+
 module.exports.base = db;
 module.exports.spend = mongoSpend;
+module.exports.links = mongoLinks;

@@ -16,7 +16,7 @@ function getData(cell, period) {
 
   return db.spend.find({
       cell: cell,
-      created_at: { $gte: utils.time().startOf(period).toDate() }
+      created_at: { $gte: utils.datePeriod(period) }
     })
     .then((items) => {
       if (!items || !items.length) {
