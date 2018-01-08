@@ -14,6 +14,10 @@ function time(date) {
   return moment(date).utcOffset(DEFAULT_TIME_ZONE);
 }
 
+function datePeriod(period, date) {
+  return time(date).startOf(period).toDate();
+}
+
 function getSortedTagsByAmount(tags) {
   return Object.keys(tags).sort((tag1, tag2) => {
     return getTagSum(tags[tag1]) < getTagSum(tags[tag2]) ? 1 : -1;
@@ -134,10 +138,16 @@ function printToCell(cell, output) {
   }, Promise.resolve());
 }
 
+function rand(min, max) {
+  return Math.floor(Math.random() * max) + min;
+}
+
 module.exports.time = time;
+module.exports.datePeriod = datePeriod;
 module.exports.getSortedTagsByAmount = getSortedTagsByAmount;
 module.exports.getOutputValue = getOutputValue;
 module.exports.splitOutput = splitOutput;
 module.exports.parseMessage = parseMessage;
 module.exports.printToCell = printToCell;
 module.exports.toFixed = toFixed;
+module.exports.rand = rand;

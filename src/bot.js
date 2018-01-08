@@ -2,6 +2,7 @@ const Telegraf = require('telegraf');
 const db = require('./db');
 const spends = require('./spends');
 const currencies = require('./currencies');
+const links = require('./links');
 const utils = require('./utils');
 const TOKEN = require('../configs/token');
 
@@ -28,6 +29,17 @@ bot.command(['month', 'month@SpendirBot'], (ctx) => {
 bot.command(['currency', 'currency@SpendirBot'], (ctx) => {
   currencies.printCurrentCurrencies(ctx.message.chat.id)
     .catch((e) => console.log(e));
+});
+
+bot.command(['graphs', 'graphs@SpendirBot'], (ctx) => {
+  links.generateNewLink(ctx.message.chat.id)
+    .then((info) => {
+      ctx.reply(`https://spendir.ru/spend/${info.hash}/\nСсылка активна до ${info.activeTo}`);
+    })
+    .catch((e) => {
+      console.log(e);
+      ctx.reply('Неудалось создать ссылку, попробуйте еще раз');
+    });
 });
 
 bot.on('edited_message', (ctx) => {
