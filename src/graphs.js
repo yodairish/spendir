@@ -204,12 +204,12 @@ function getGraphPage(cell) {
     .select('amountBase currency tags created_at')
     .then((items) => getGroupedDailyData(items))
     .then((data) => ([
+      getPieChartHTML({ title: 'Total by tags (day)', data: data.totalTags.day }),
+      getPieChartHTML({ title: 'Total by tags (week)', data: data.totalTags.week }),
+      getPieChartHTML({ title: 'Total by tags (month)', data: data.totalTags.month }),
+      getPieChartHTML({ title: 'Total by tags (year)', data: data.totalTags.year }),
       getAreaChartHTML({ title: 'Total amount', data: { total: data.total } }),
       getAreaChartHTML({ title: 'Amount by tags', data: data.tags, type: 'stock' }),
-      getPieChartHTML({ title: 'Total by tags (year)', data: data.totalTags.year }),
-      getPieChartHTML({ title: 'Total by tags (month)', data: data.totalTags.month }),
-      getPieChartHTML({ title: 'Total by tags (week)', data: data.totalTags.week }),
-      getPieChartHTML({ title: 'Total by tags (day)', data: data.totalTags.day }),
     ].join('')))
     .then((chartHTML) => ({
       title: 'Spends graphs',
