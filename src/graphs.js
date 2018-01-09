@@ -214,7 +214,7 @@ function getGraphPage(cell) {
     .then((chartHTML) => ({
       title: 'Spends graphs',
       js: [
-        'http://code.highcharts.com/stock/highstock.js'
+        'https://code.highcharts.com/stock/highstock.js'
       ],
       html: chartHTML,
     }));
