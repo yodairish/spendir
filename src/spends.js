@@ -174,6 +174,8 @@ function printCellsData(period) {
  */
 function runDailySpends() {
   if (endOfDay) {
+    console.log('Print report: ', endOfDay.format('DD.MM HH:mm:ss'));
+
     printCellsData('day');
 
     if (endOfDay.isSame(endOfDay.clone().endOf('week'))) {
