@@ -6,7 +6,7 @@ const EMPTY_MESSAGE = 'Нет записей';
 const NO_TAG = 'other';
 let endOfDay;
 
-function getData(cell, period) {
+function getData(cell, period, date) {
   const data = { total: {}, days: {}, tags: {}, empty: false };
 
   if (!cell || !period) {
@@ -16,7 +16,7 @@ function getData(cell, period) {
 
   return db.spend.find({
       cell: cell,
-      created_at: { $gte: utils.datePeriod(period) }
+      created_at: { $gte: utils.datePeriod(period, date) }
     })
     .then((items) => {
       if (!items || !items.length) {
@@ -154,11 +154,11 @@ function remove(ctx, record) {
     });;
 }
 
-function printCellsData(period) {
+function printCellsData(period, date) {
   db.spend.find().distinct('cell')
     .then((cells) => {
       cells.forEach((cell) => {
-        getData(cell, period)
+        getData(cell, period, date)
           .then((data) => {
             if (!data.empty) {
               return print(cell, data);
@@ -176,14 +176,16 @@ function runDailySpends() {
   if (endOfDay) {
     console.log('Print report: ', endOfDay.format('DD.MM HH:mm:ss'));
 
-    printCellsData('day');
+    const endOfDayTS = endOfDay.valueOf();
+
+    printCellsData('day', endOfDayTS);
 
     if (endOfDay.isSame(endOfDay.clone().endOf('week'))) {
-      printCellsData('week');
+      printCellsData('week', endOfDayTS);
     }
 
     if (endOfDay.isSame(endOfDay.clone().endOf('month'))) {
-      printCellsData('month');
+      printCellsData('month', endOfDayTS);
     }
 
     // go to next day
