@@ -223,8 +223,10 @@ function getGraphPage(cell) {
 function getBrokenLinkPage() {
   return {
     html: `
-<p style="text-align: center; font-size: 25px;">Ссылка просрочена</p>
-<p style="text-align: center; font-size: 25px;">Пожалуйста, получите новую ссылку от бота</p>
+<div style="position: fixed; top: 0; bottom: 0; left: 0; right: 0; margin: auto; text-align: center; font-size: 30px; height: 250px;">
+  <p>Ссылка просрочена</p>
+  <p>Пожалуйста, получите новую ссылку от бота</p>
+</div>
     `,
   };
 }

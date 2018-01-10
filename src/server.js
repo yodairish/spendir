@@ -31,9 +31,11 @@ function pageHTML(props) {
 
 function getMainPage() {
   return {
-  html: `
-<p style="text-align: center; font-size: 30px;">Простой финансовый бот в Телеграме</p>
-<p style="text-align: center;"><a href="https://telegram.me/SpendirBot" style="font-size: 25px; text-decoration: none; color: #6767ff;">Открыть бота</a></p>
+    html: `
+<div style="position: fixed; top: 0; bottom: 0; left: 0; right: 0; margin: auto; text-align: center; font-size: 30px; height: 250px;">
+  <p>Простой финансовый бот в Телеграме</p>
+  <a href="https://telegram.me/SpendirBot" title="Открыть бота" style="display: inline-block; width: 100px; height: 100px; background-image: url(https://telegram.org/img/t_logo.png); background-size: contain; background-repeat: no-repeat; background-position: center;"></a>
+</div>
 `
   };
 }
