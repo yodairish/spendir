@@ -1,6 +1,7 @@
 const db = require('./db');
 const currencies = require('./currencies');
 const utils = require('./utils');
+const settings = require('./settings');
 
 const EMPTY_MESSAGE = 'Нет записей';
 const NO_TAG = 'other';
@@ -37,6 +38,10 @@ function getData(cell, period, date) {
         const currency = currencies.getName(item.currency);
 
         result.total[currency] = (result.total[currency] || 0) + item.amount;
+
+        if (item.tags && item.tags.length) {
+          item.tags = item.tags.filter((tag) => tag !== 'no_limit');
+        }
 
         if (!item.tags || !item.tags.length) {
           item.tags = [NO_TAG];
@@ -92,7 +97,14 @@ function print(cell, data) {
 
   output += '\n= ' + utils.getOutputValue(data.total);
 
-  return utils.printToCell(cell, output);
+  return getRestLimit(cell)
+    .then((limit) => {
+      if (Number.isInteger(limit)) {
+        output += `\n\nОстаток:\n= ${limit}`;
+      }
+
+      return utils.printToCell(cell, output);
+    });
 }
 
 function add(ctx, message, result) {
@@ -116,10 +128,18 @@ function add(ctx, message, result) {
       }
     })
     .then((total) => {
-      total = total ? ` (${total})` : '';
+      return getRestLimit(message.chat.id)
+        .then((limit) => {
+          return { total: total, limit: limit };
+        });
+    })
+    .then((info) => {
+      additional = '';
+      additional = info.total ? ` (=${info.total})` : '';
+      additional = Number.isInteger(info.limit) ? ` (Остаток: ${info.limit})` : '';
 
       const currency = currencies.getForOutput(result.currency);
-      ctx.reply(`Принятно: ${result.amount} ${currency}${total}`);
+      ctx.reply(`Принятно: ${result.amount} ${currency}${additional}`);
     })
     .catch((e) => {
       console.log(e);
@@ -197,6 +217,40 @@ function runDailySpends() {
   }
 
   setTimeout(runDailySpends, endOfDay.diff());
+}
+
+function getRestLimit(cell) {
+  if (!cell) {
+    return Promise.resolve(false);
+  }
+
+  return settings.getLimit(cell)
+    .then((limit) => {
+      if (!limit.amount) {
+        return false;
+      }
+
+      const result = db.spend.find({
+          cell: cell,
+          created_at: { $gte: utils.datePeriod('month') },
+        })
+        .where('tags').nin(['no_limit']);
+
+      if (limit.only && limit.only.length) {
+        result.where('tags').in(limit.only);
+      } else if (limit.except && limit.except.length) {
+        result.where('tags').nin(limit.except);
+      }
+
+      return result.then((items) => {
+        items = items || [];
+
+        return items.reduce((rest, item) => {
+          const currency = currencies.getName(item.currency);
+          return rest - Math.ceil(currencies.getValueInDefault(currency, item.amount));
+        }, limit.amount);
+      });
+    });
 }
 
 module.exports.getData = getData;

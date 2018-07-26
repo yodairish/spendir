@@ -6,7 +6,7 @@ const TOKEN = require('../configs/token');
 const telegram = new Telegram(TOKEN);
 
 const DEFAULT_TIME_ZONE = 3;
-const MONEY_PATTERN = /^([0-9\. ]+)(.*)?/;
+const MONEY_PATTERN = /^(\*?[0-9\. ]+)(.*)?/;
 // Real limit 4096, but save some for extra
 const MESSAGE_LIMIT = 3500;
 
@@ -104,9 +104,15 @@ function allocateEntities(text, entities, textOffset) {
 }
 
 function parseMessage(message, entities) {
-  const matches = message.match(MONEY_PATTERN);
+  const matches = message.trim().match(MONEY_PATTERN);
 
   if (!matches) return false;
+
+  const ignoreLimit = matches[1][0] === '*';
+
+  if (ignoreLimit) {
+    matches[1] = matches[1].slice(1);
+  }
 
   const amount = +matches[1].trim().replace(/ /g, '');
   let msg = (matches[2] || '').trim();
@@ -122,6 +128,10 @@ function parseMessage(message, entities) {
 
   // Get tags
   const result = allocateEntities(msg, entities, -message.indexOf(msg));
+
+  if (ignoreLimit) {
+    result.tags.push('no_limit');
+  }
 
   return {
     amount: amount,
@@ -151,3 +161,4 @@ module.exports.parseMessage = parseMessage;
 module.exports.printToCell = printToCell;
 module.exports.toFixed = toFixed;
 module.exports.rand = rand;
+module.exports.allocateEntities = allocateEntities;

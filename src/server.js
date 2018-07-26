@@ -1,7 +1,9 @@
+const serverConfig = require('../configs/server');
+
 const express = require('express');
 const graphs = require('./graphs');
 
-const GRAPH_PORT = 5000;
+const GRAPH_PORT = (serverConfig && serverConfig.port) || 5000;
 
 const app = express();
 

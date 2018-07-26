@@ -42,6 +42,20 @@ const mongoLinksSchema = new MongoSchema({
 
 const mongoLinks = mongoose.model('Links', mongoLinksSchema);
 
+const mongoSettingsSchema = new MongoSchema({
+  cell: Number,
+  limit: Number,
+  limitOnly: [String],
+  limitExcept: [String],
+}, {
+  timestamps: {
+    createdAt: 'created_at',
+  },
+});
+
+const mongoSettings = mongoose.model('Settings', mongoSettingsSchema);
+
 module.exports.base = db;
 module.exports.spend = mongoSpend;
 module.exports.links = mongoLinks;
+module.exports.settings = mongoSettings;
