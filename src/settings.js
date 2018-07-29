@@ -11,7 +11,7 @@ function getLimit(cell) {
       cell: cell
     })
     .then((settings) => {
-      if (!settings.limit) {
+      if (!settings || !settings.limit) {
         return limit;
       }
 
