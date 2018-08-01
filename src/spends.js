@@ -135,8 +135,8 @@ function add(ctx, message, result) {
     })
     .then((info) => {
       additional = '';
-      additional = info.total ? ` (=${info.total})` : '';
-      additional = Number.isInteger(info.limit) ? ` (Остаток: ${info.limit})` : '';
+      additional += info.total ? ` (=${info.total})` : '';
+      additional += Number.isInteger(info.limit) ? ` (Остаток: ${info.limit})` : '';
 
       const currency = currencies.getForOutput(result.currency);
       ctx.reply(`Принятно: ${result.amount} ${currency}${additional}`);
