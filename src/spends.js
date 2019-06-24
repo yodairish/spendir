@@ -119,27 +119,44 @@ function add(ctx, message, result) {
     messageId: message.message_id,
   };
 
+  const amounts = {};
+
   return new db.spend(data)
     .save()
+
     .then(() => getData(ctx.message.chat.id, 'day'))
-    .then((data) => {
-      if (!data.empty) {
-        return utils.getOutputValue(data.total);
+    .then((result) => {
+      if (!result.empty) {
+        amounts.day = utils.getOutputValue(result.total);
       }
     })
-    .then((total) => {
-      return getRestLimit(message.chat.id)
-        .then((limit) => {
-          return { total: total, limit: limit };
-        });
-    })
-    .then((info) => {
-      additional = '';
-      additional += info.total ? ` (=${info.total})` : '';
-      additional += Number.isInteger(info.limit) ? ` (Остаток: ${info.limit})` : '';
 
+    .then(() => getData(ctx.message.chat.id, 'month'))
+    .then((result) => {
+      if (!result.empty) {
+        amounts.month = utils.getOutputValue(result.total);
+      }
+    })
+
+    .then(() => getRestLimit(message.chat.id))
+    .then((result) => {
+      if (result > 0) {
+        amounts.limit = result;
+      }
+    })
+
+    .then(() => {
       const currency = currencies.getForOutput(result.currency);
-      ctx.reply(`Принятно: ${result.amount} ${currency}${additional}`);
+      let output = `Принятно: ${result.amount} ${currency}`;
+
+      let additional = '';
+
+      additional += amounts.day ? ` День: ${amounts.day}` : '';
+      additional += amounts.month ? ` Месяц: ${amounts.month}` : '';
+      additional += amounts.limit ? ` Остаток: ${amounts.limit}` : '';
+      output += additional ? ` (${additional.trim()})` : '';
+
+      ctx.reply(output);
     })
     .catch((e) => {
       console.log(e);
