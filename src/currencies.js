@@ -15,6 +15,8 @@ const CURRENCIES_COMPLIANCE = {
 };
 const CURRENCY_DEFAULT = 'RUB';
 
+const CURRENCY_WHEN_NOT_SET = 'AUD';
+
 const CB_CURRENCIES_JSON_URL = 'http://www.cbr-xml-daily.ru/daily_json.js';
 
 let endOfDay;
@@ -27,7 +29,7 @@ function normalize(name) {
   name = (name || '').toUpperCase();
   name = CURRENCIES_COMPLIANCE[name] || name;
 
-  return CURRENCIES[name] ? name : '';
+  return CURRENCIES[name] ? name : CURRENCY_WHEN_NOT_SET;
 }
 
 function getName(name) {
