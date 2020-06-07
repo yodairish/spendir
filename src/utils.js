@@ -118,11 +118,10 @@ function parseMessage(message, entities) {
   let msg = (matches[2] || '').trim();
 
   // Get currency
-  const firstWord = (msg.match(/^[a-z]+/) || [])[0];
+  const firstWord = (msg.match(/^[a-z]+/i) || [])[0];
+  const currency = currencies.normalize(firstWord);
 
-  let currency = currencies.normalize(firstWord);
-
-  if (currency) {
+  if (firstWord && currencies.isCurrency(firstWord)) {
     msg = msg.substr(firstWord.length);
   }
 

@@ -25,6 +25,13 @@ function isDefault(name) {
   return !name || name === CURRENCY_DEFAULT;
 }
 
+function isCurrency(name) {
+  name = (name || '').toUpperCase();
+  name = CURRENCIES_COMPLIANCE[name] || name;
+
+  return !!CURRENCIES[name];
+}
+
 function normalize(name) {
   name = (name || '').toUpperCase();
   name = CURRENCIES_COMPLIANCE[name] || name;
@@ -134,6 +141,7 @@ function runDailyCurrencies() {
 }
 
 module.exports.isDefault = isDefault;
+module.exports.isCurrency = isCurrency;
 module.exports.normalize = normalize;
 module.exports.getName = getName;
 module.exports.getValueInDefault = getValueInDefault;
